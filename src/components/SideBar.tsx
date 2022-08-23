@@ -15,6 +15,7 @@ export function SideBar({
   selectedGenreId,
   buttonClickCallback
 }: SideBarProps) {
+
   return (
     <nav className="sidebar">
       <span>Watch<p>Me</p></span>

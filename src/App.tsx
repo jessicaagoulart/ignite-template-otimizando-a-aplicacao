@@ -1,72 +1,105 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from "react";
 
-import { SideBar } from './components/SideBar';
-import { Content } from './components/Content';
+import { SideBar } from "./components/SideBar";
+import { Content } from "./components/Content";
 
-import { api } from './services/api';
+import { api } from "./services/api";
 
-import './styles/global.scss';
+import "./styles/global.scss";
 
-import './styles/sidebar.scss';
-import './styles/content.scss';
+import "./styles/sidebar.scss";
+import "./styles/content.scss";
 
 interface GenreResponseProps {
-  id: number;
-  name: 'action' | 'comedy' | 'documentary' | 'drama' | 'horror' | 'family';
-  title: string;
+	id: number;
+	name: "action" | "comedy" | "documentary" | "drama" | "horror" | "family";
+	title: string;
 }
 
 interface MovieProps {
-  imdbID: string;
-  Title: string;
-  Poster: string;
-  Ratings: Array<{
-    Source: string;
-    Value: string;
-  }>;
-  Runtime: string;
+	imdbID: string;
+	Title: string;
+	Poster: string;
+	Ratings: Array<{
+		Source: string;
+		Value: string;
+	}>;
+	Runtime: string;
 }
 
 export function App() {
-  const [selectedGenreId, setSelectedGenreId] = useState(1);
+	const [selectedGenreId, setSelectedGenreId] = useState(1);	const [genres, setGenres] = useState<GenreResponseProps[]>([]);
+	const [movies, setMovies] = useState<MovieProps[]>([]);
+	const [selectedGenre, setSelectedGenre] = useState<GenreResponseProps>(
+		{} as GenreResponseProps
+	);
 
-  const [genres, setGenres] = useState<GenreResponseProps[]>([]);
+	useMemo(() => {
+		let data: GenreResponseProps[] = [];
 
-  const [movies, setMovies] = useState<MovieProps[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<GenreResponseProps>({} as GenreResponseProps);
+		api.get<GenreResponseProps[]>("genres").then((response) => {
+			data = response.data.map((genre: GenreResponseProps) => ({
+				id: genre.id,
+				name: genre.name,
+				title: genre.title,
+			}));
+			setGenres(data);
+		});
 
-  useEffect(() => {
-    api.get<GenreResponseProps[]>('genres').then(response => {
-      setGenres(response.data);
-    });
-  }, []);
+		return data;
+	}, []);
 
-  useEffect(() => {
-    api.get<MovieProps[]>(`movies/?Genre_id=${selectedGenreId}`).then(response => {
-      setMovies(response.data);
-    });
+	const getGenreById = useCallback(
+		(genreId: number) => {
+			api.get<GenreResponseProps>(`genres/${genreId}`).then((response) => {
+				const formatResponse = {
+					id: response.data.id,
+					name: response.data.name,
+					title: response.data.title,
+				};
+				setSelectedGenre(formatResponse);
+			});
+		},
+		[selectedGenreId]
+	);
 
-    api.get<GenreResponseProps>(`genres/${selectedGenreId}`).then(response => {
-      setSelectedGenre(response.data);
-    })
-  }, [selectedGenreId]);
+	useMemo(() => {
+		let data: MovieProps[] = [];
 
-  function handleClickButton(id: number) {
-    setSelectedGenreId(id);
-  }
+		getGenreById(selectedGenreId);
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'row' }}>
-      <SideBar
-        genres={genres}
-        selectedGenreId={selectedGenreId}
-        buttonClickCallback={handleClickButton}
-      />
+		api.get(`movies/?Genre_id=${selectedGenreId}`).then((response) => {
+			data = response?.data?.map((movie: MovieProps) => {
+				return {
+					imdbID: movie.imdbID,
+					Title: movie.Title,
+					Poster: movie.Poster,
+					Ratings: movie.Ratings.map((rating) => {
+						return {
+							Source: rating.Source,
+							Value: rating.Value,
+						};
+					}),
+					Runtime: movie.Runtime,
+				};
+			});
+			setMovies(data);
+		});
+	}, [selectedGenreId]);
 
-      <Content
-        selectedGenre={selectedGenre}
-        movies={movies}
-      />
-    </div>
-  )
+	function handleClickButton(id: number) {
+		setSelectedGenreId(id);
+	}
+
+	return (
+		<div style={{ display: "flex", flexDirection: "row" }}>
+			<SideBar
+				genres={genres}
+				selectedGenreId={selectedGenreId}
+				buttonClickCallback={handleClickButton}
+			/>
+
+			<Content selectedGenre={selectedGenre} movies={movies} />
+		</div>
+	);
 }
